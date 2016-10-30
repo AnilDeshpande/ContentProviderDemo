@@ -9,10 +9,25 @@
     android:paddingTop="@dimen/activity_vertical_margin"
     tools:context="codetutor.youtube.edu.contentproviderdemo.MainActivity">
 
+
+
+
+
+    <Button
+        style="?android:attr/buttonStyleSmall"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Load Data"
+        android:id="@+id/buttonLoadData"
+        android:layout_alignParentTop="true"
+        android:layout_alignParentLeft="true"
+        android:layout_marginTop="5dp" />
+
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:id="@+id/textViewQueryResult"
+        android:layout_below="@id/buttonLoadData"
         android:textSize="25sp"
         android:gravity="center"/>
 
