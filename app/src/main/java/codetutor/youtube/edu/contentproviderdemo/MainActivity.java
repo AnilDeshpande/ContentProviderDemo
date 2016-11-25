@@ -10,36 +10,33 @@ import android.content.ContentValues;
 import android.content.CursorLoader;
 import android.content.Intent;
 import android.content.Loader;
-import android.content.OperationApplicationException;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
-import android.net.Uri;
-import android.os.RemoteException;
+import android.os.Bundle;
 import android.provider.ContactsContract;
+import android.support.annotation.NonNull;
+import android.support.design.widget.Snackbar;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
-import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
-
-import com.google.android.gms.appindexing.Action;
-import com.google.android.gms.appindexing.AppIndex;
-import com.google.android.gms.common.api.GoogleApiClient;
-import android.support.design.widget.Snackbar;
 import android.widget.Toast;
+
+import com.google.android.gms.common.api.GoogleApiClient;
 
 import java.util.ArrayList;
 
 
-public class MainActivity extends AppCompatActivity implements View.OnClickListener, LoaderManager.LoaderCallbacks<Cursor> {
+public class MainActivity extends AppCompatActivity implements View.OnClickListener, LoaderManager.LoaderCallbacks<Cursor>{
 
     private static final String TAG = "ContentProviderDemo";
 
-    //private int MY_PERMISSIONS_REQUEST_READ_CONTACTS=20;
+    private int MY_PERMISSIONS_REQUEST_READ_CONTACTS=20;
+    private int MY_PERMISSION_REQUEST_WRITE_CONTACTS=30;
 
     private boolean firstTimeLoaded=false;
 
@@ -82,7 +79,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         buttonAddContact=(Button)findViewById(R.id.buttonAddContact);
         buttonRemoveContact=(Button)findViewById(R.id.buttonRemoveContact);
         buttonUpdateContact=(Button)findViewById(R.id.buttonUpdateContact);
-
 
 
         buttonLoadData.setOnClickListener(this);
@@ -143,16 +139,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     @Override
     public void onClick(View view) {
         switch (view.getId()) {
-            case R.id.buttonLoadData:
-                if(firstTimeLoaded==false){
-                    getLoaderManager().initLoader(1, null,this);
-                    firstTimeLoaded=true;
-                }else{
-                    getLoaderManager().restartLoader(1,null,this);
-                }
-
+            case R.id.buttonLoadData:loadContacts();
                 break;
-            case R.id.buttonAddContact: addContact();
+            case R.id.buttonAddContact: insertContacts();
                 break;
             case R.id.buttonRemoveContact:removeContacts();
                 break;
@@ -162,23 +151,52 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 break;
         }
    }
+
+    private void insertContacts(){
+
+       String newName=editTextContactName.getText().toString();
+        if(newName!=null && !newName.equals("") && newName.length()!=0){
+            ArrayList<ContentProviderOperation> cops=new ArrayList<ContentProviderOperation>();
+
+            cops.add(ContentProviderOperation.newInsert(ContactsContract.RawContacts.CONTENT_URI)
+                    .withValue(ContactsContract.RawContacts.ACCOUNT_TYPE,"accountname@gmail.com")
+                    .withValue(ContactsContract.RawContacts.ACCOUNT_NAME, "com.google")
+                    .build());
+            cops.add(ContentProviderOperation.newInsert(ContactsContract.Data.CONTENT_URI)
+                    .withValueBackReference(ContactsContract.Data.RAW_CONTACT_ID, 0)
+                    .withValue(ContactsContract.Data.MIMETYPE, ContactsContract.CommonDataKinds.StructuredName.CONTENT_ITEM_TYPE)
+                    .withValue(ContactsContract.CommonDataKinds.StructuredName.DISPLAY_NAME, editTextContactName.getText().toString())
+                    .build());
+
+            try{
+                getContentResolver().applyBatch(ContactsContract.AUTHORITY,cops);
+            }catch (Exception exception){
+                Log.i(TAG,exception.getMessage());
+            }
+        }
+
+
+    }
+
     private void addContact() {
-        ArrayList<ContentProviderOperation> cops=new ArrayList<ContentProviderOperation>();
-
-        cops.add(ContentProviderOperation.newInsert(ContactsContract.RawContacts.CONTENT_URI)
-                .withValue(ContactsContract.RawContacts.ACCOUNT_TYPE,"accountname@gmail.com")
-                .withValue(ContactsContract.RawContacts.ACCOUNT_NAME, "com.google")
-                .build());
-        cops.add(ContentProviderOperation.newInsert(ContactsContract.Data.CONTENT_URI)
-                .withValueBackReference(ContactsContract.Data.RAW_CONTACT_ID, 0)
-                .withValue(ContactsContract.Data.MIMETYPE, ContactsContract.CommonDataKinds.StructuredName.CONTENT_ITEM_TYPE)
-                .withValue(ContactsContract.CommonDataKinds.StructuredName.DISPLAY_NAME, editTextContactName.getText().toString())
-                .build());
-
-        try{
-            getContentResolver().applyBatch(ContactsContract.AUTHORITY,cops);
-        }catch (Exception exception){
-            Log.i(TAG,exception.getMessage());
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_CONTACTS) == PackageManager.PERMISSION_GRANTED) {
+            insertContacts();
+        } else {
+            if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.WRITE_CONTACTS)) {
+                Snackbar.make(findViewById(android.R.id.content),
+                        "Needs Contacts write permission",
+                        Snackbar.LENGTH_INDEFINITE).setAction("ENABLE",
+                        new View.OnClickListener() {
+                            @Override
+                            public void onClick(View v) {
+                                ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.WRITE_CONTACTS},MY_PERMISSION_REQUEST_WRITE_CONTACTS);
+                            }
+                        }).show();
+            }else{
+                ActivityCompat.requestPermissions(this,
+                        new String[]{Manifest.permission.WRITE_CONTACTS},
+                        MY_PERMISSION_REQUEST_WRITE_CONTACTS);
+            }
         }
     }
 
@@ -191,23 +209,36 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         String targetString=null;
         String newString=null;
         if(updateValue.length==2){
-
             targetString=updateValue[0];
             newString=updateValue[1];
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_CONTACTS) == PackageManager.PERMISSION_GRANTED) {
+                if(newString!=null && !newString.equals("") && newString.length()!=0)
+                {
+                    String where= ContactsContract.RawContacts._ID + " = ? ";
+                    String [] params= new String[] {targetString};
+                    ContentResolver contentResolver=getContentResolver();
+                    ContentValues contentValues=new ContentValues();
+                    contentValues.put(ContactsContract.RawContacts.DISPLAY_NAME_PRIMARY,newString);
+                    // UPDATE <table_name> SET column1 = value1, column2 = value2 where column3 = selection_value
+                    contentResolver.update(ContactsContract.RawContacts.CONTENT_URI,contentValues, where,params);
+                }
+            }
 
-            String where= ContactsContract.RawContacts._ID + " = ? ";
-            String [] params= new String[] {targetString};
 
-            ContentResolver contentResolver=getContentResolver();
-            ContentValues contentValues=new ContentValues();
-            contentValues.put(ContactsContract.RawContacts.DISPLAY_NAME_PRIMARY,newString);
-            contentResolver.update(ContactsContract.RawContacts.CONTENT_URI,contentValues, where,params);
         }
     }
 
     private void removeContacts(){
-        String whereClause=ContactsContract.RawContacts.DISPLAY_NAME_PRIMARY+ " = '"+editTextContactName.getText().toString()+"'";
-        getContentResolver().delete(ContactsContract.RawContacts.CONTENT_URI,whereClause,null);
+        String newName=editTextContactName.getText().toString();
+        if(newName!=null && !newName.equals("") && newName.length()!=0){
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_CONTACTS) == PackageManager.PERMISSION_GRANTED) {
+                //display_name = '<entered_value>'
+                String whereClause=ContactsContract.RawContacts.DISPLAY_NAME_PRIMARY+ " = '"+editTextContactName.getText().toString()+"'";
+                //DELETE FROM <table_name> where column1 = selection_value
+                getContentResolver().delete(ContactsContract.RawContacts.CONTENT_URI,whereClause,null);
+            }
+        }
+
     }
 
     private void addContactsViaIntents(){
@@ -221,29 +252,34 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
 
+    private void loadContacts() {
 
-    /*private void loadContacts() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED) {
-            getLoaderManager().initLoader(1, null, this);
-        } else {
-            if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.READ_CONTACTS)) {
-                Snackbar.make(findViewById(android.R.id.content),
-                        "Please Grant Permissions",
-                        Snackbar.LENGTH_INDEFINITE).setAction("ENABLE",
+        if(ActivityCompat.checkSelfPermission(this,Manifest.permission.READ_CONTACTS)==PackageManager.PERMISSION_GRANTED){
+            Log.i(TAG,"Permisssion is granted");
+            if (firstTimeLoaded == false) {
+                getLoaderManager().initLoader(1, null, this);
+                firstTimeLoaded = true;
+            } else {
+                getLoaderManager().restartLoader(1, null, this);
+            }
+        }else{
+            Log.i(TAG,"Permisssion is not granted");
+            if (ActivityCompat.shouldShowRequestPermissionRationale(this,Manifest.permission.READ_CONTACTS)){
+                Log.i(TAG,"Permisssion is not granted, hence showing rationale");
+                Snackbar.make(findViewById(android.R.id.content),"Need permission for loading data",Snackbar.LENGTH_INDEFINITE).setAction("ENABLE",
                         new View.OnClickListener() {
                             @Override
                             public void onClick(View v) {
-                                ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.READ_CONTACTS},MY_PERMISSIONS_REQUEST_READ_CONTACTS);
+                                ActivityCompat.requestPermissions(MainActivity.this,new String[]{Manifest.permission.READ_CONTACTS},MY_PERMISSIONS_REQUEST_READ_CONTACTS);
                             }
                         }).show();
-            }else{
-                ActivityCompat.requestPermissions(this,
-                        new String[]{Manifest.permission.READ_CONTACTS},
-                        MY_PERMISSIONS_REQUEST_READ_CONTACTS);
+            }else {
+                Log.i(TAG,"Permisssion being requested for first time");
+                ActivityCompat.requestPermissions(this,new String[]{Manifest.permission.READ_CONTACTS},MY_PERMISSIONS_REQUEST_READ_CONTACTS);
             }
         }
-    }*/
 
 
+    }
 
 }
