@@ -18,6 +18,7 @@ import android.support.annotation.NonNull;
 import android.support.design.widget.Snackbar;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
+import android.support.v4.content.PermissionChecker;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
@@ -141,11 +142,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         switch (view.getId()) {
             case R.id.buttonLoadData:loadContacts();
                 break;
-            case R.id.buttonAddContact: insertContacts();
+            case R.id.buttonAddContact: addContact();
                 break;
-            case R.id.buttonRemoveContact:removeContacts();
+            case R.id.buttonRemoveContact:deleteContact();
                 break;
-            case R.id.buttonUpdateContact: updateContact();
+            case R.id.buttonUpdateContact: modifyCotact();
                 break;
             default:
                 break;
@@ -172,10 +173,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 getContentResolver().applyBatch(ContactsContract.AUTHORITY,cops);
             }catch (Exception exception){
                 Log.i(TAG,exception.getMessage());
+                Toast.makeText(this,exception.getMessage(),Toast.LENGTH_SHORT).show();
             }
         }
-
-
     }
 
     private void addContact() {
@@ -223,8 +223,28 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     contentResolver.update(ContactsContract.RawContacts.CONTENT_URI,contentValues, where,params);
                 }
             }
+        }
+    }
 
-
+    private void modifyCotact(){
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.WRITE_CONTACTS) == PackageManager.PERMISSION_GRANTED) {
+            updateContact();
+        } else {
+            if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.WRITE_CONTACTS)) {
+                Snackbar.make(findViewById(android.R.id.content),
+                        "Needs Contacts write permission",
+                        Snackbar.LENGTH_INDEFINITE).setAction("ENABLE",
+                        new View.OnClickListener() {
+                            @Override
+                            public void onClick(View v) {
+                                ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.WRITE_CONTACTS},MY_PERMISSION_REQUEST_WRITE_CONTACTS);
+                            }
+                        }).show();
+            }else{
+                ActivityCompat.requestPermissions(this,
+                        new String[]{Manifest.permission.WRITE_CONTACTS},
+                        MY_PERMISSION_REQUEST_WRITE_CONTACTS);
+            }
         }
     }
 
@@ -239,6 +259,28 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             }
         }
 
+    }
+
+    private void deleteContact(){
+        if(ActivityCompat.checkSelfPermission(this,Manifest.permission.WRITE_CONTACTS)==PackageManager.PERMISSION_GRANTED){
+            removeContacts();
+        }else{
+            if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.WRITE_CONTACTS)) {
+                Snackbar.make(findViewById(android.R.id.content),
+                        "Needs Contacts write permission",
+                        Snackbar.LENGTH_INDEFINITE).setAction("ENABLE",
+                        new View.OnClickListener() {
+                            @Override
+                            public void onClick(View v) {
+                                ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.WRITE_CONTACTS},MY_PERMISSION_REQUEST_WRITE_CONTACTS);
+                            }
+                        }).show();
+            }else{
+                ActivityCompat.requestPermissions(this,
+                        new String[]{Manifest.permission.WRITE_CONTACTS},
+                        MY_PERMISSION_REQUEST_WRITE_CONTACTS);
+            }
+        }
     }
 
     private void addContactsViaIntents(){
@@ -278,8 +320,5 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 ActivityCompat.requestPermissions(this,new String[]{Manifest.permission.READ_CONTACTS},MY_PERMISSIONS_REQUEST_READ_CONTACTS);
             }
         }
-
-
     }
-
 }
