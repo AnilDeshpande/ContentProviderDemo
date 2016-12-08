@@ -30,14 +30,28 @@ import android.widget.Toast;
 import com.google.android.gms.common.api.GoogleApiClient;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 
-public class MainActivity extends AppCompatActivity implements View.OnClickListener, LoaderManager.LoaderCallbacks<Cursor>{
+public class MainActivity extends AppCompatActivity implements View.OnClickListener, LoaderManager.LoaderCallbacks<Cursor>, ActivityCompat.OnRequestPermissionsResultCallback{
 
     private static final String TAG = "ContentProviderDemo";
 
     private int MY_PERMISSIONS_REQUEST_READ_CONTACTS=20;
     private int MY_PERMISSION_REQUEST_WRITE_CONTACTS=30;
+
+    private int recentOpPerfomed;
+
+    private final int LOAD_CONTACTS=1;
+    private final int WRITE_CONTACTS=2;
+    private final int UPDATE_CONTACTS=3;
+    private final int DELETE_CONTACTS=4;
+
+    private int MY_CRITICAL_PERMISSIONS=40;
 
     private boolean firstTimeLoaded=false;
 
@@ -90,25 +104,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
 
         contentResolver=getContentResolver();
-
-        /*ContentResolver contentResolver=getContentResolver();
-        Cursor cursor=contentResolver.query(ContactsContract.Contacts.CONTENT_URI,
-                mColumnProjection,
-                null,
-                null,
-                null);
-
-        if(cursor!=null && cursor.getCount()>0){
-            StringBuilder stringBuilderQueryResult=new StringBuilder("");
-            while (cursor.moveToNext()){
-                stringBuilderQueryResult.append(cursor.getString(0)+" , "+cursor.getString(1)+" , "+cursor.getString(2)+"\n");
-            }
-            textViewQueryResult.setText(stringBuilderQueryResult.toString());
-        }else{
-            textViewQueryResult.setText("No Contacts in device");
-        }*/
-
-
     }
 
     @Override
@@ -179,24 +174,12 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     private void addContact() {
+        recentOpPerfomed=WRITE_CONTACTS;
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.WRITE_CONTACTS) == PackageManager.PERMISSION_GRANTED) {
             insertContacts();
         } else {
-            if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.WRITE_CONTACTS)) {
-                Snackbar.make(findViewById(android.R.id.content),
-                        "Needs Contacts write permission",
-                        Snackbar.LENGTH_INDEFINITE).setAction("ENABLE",
-                        new View.OnClickListener() {
-                            @Override
-                            public void onClick(View v) {
-                                ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.WRITE_CONTACTS},MY_PERMISSION_REQUEST_WRITE_CONTACTS);
-                            }
-                        }).show();
-            }else{
-                ActivityCompat.requestPermissions(this,
-                        new String[]{Manifest.permission.WRITE_CONTACTS},
-                        MY_PERMISSION_REQUEST_WRITE_CONTACTS);
-            }
+            requestRunTimePermissions(new String[]{Manifest.permission.WRITE_CONTACTS},MY_PERMISSION_REQUEST_WRITE_CONTACTS)
+            ;
         }
     }
 
@@ -230,25 +213,12 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.WRITE_CONTACTS) == PackageManager.PERMISSION_GRANTED) {
             updateContact();
         } else {
-            if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.WRITE_CONTACTS)) {
-                Snackbar.make(findViewById(android.R.id.content),
-                        "Needs Contacts write permission",
-                        Snackbar.LENGTH_INDEFINITE).setAction("ENABLE",
-                        new View.OnClickListener() {
-                            @Override
-                            public void onClick(View v) {
-                                ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.WRITE_CONTACTS},MY_PERMISSION_REQUEST_WRITE_CONTACTS);
-                            }
-                        }).show();
-            }else{
-                ActivityCompat.requestPermissions(this,
-                        new String[]{Manifest.permission.WRITE_CONTACTS},
-                        MY_PERMISSION_REQUEST_WRITE_CONTACTS);
-            }
+            requestRunTimePermissions(new String[]{Manifest.permission.WRITE_CONTACTS}, MY_PERMISSION_REQUEST_WRITE_CONTACTS);
         }
     }
 
     private void removeContacts(){
+        recentOpPerfomed=DELETE_CONTACTS;
         String newName=editTextContactName.getText().toString();
         if(newName!=null && !newName.equals("") && newName.length()!=0){
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_CONTACTS) == PackageManager.PERMISSION_GRANTED) {
@@ -262,24 +232,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     private void deleteContact(){
+        recentOpPerfomed=DELETE_CONTACTS;
         if(ActivityCompat.checkSelfPermission(this,Manifest.permission.WRITE_CONTACTS)==PackageManager.PERMISSION_GRANTED){
             removeContacts();
         }else{
-            if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.WRITE_CONTACTS)) {
-                Snackbar.make(findViewById(android.R.id.content),
-                        "Needs Contacts write permission",
-                        Snackbar.LENGTH_INDEFINITE).setAction("ENABLE",
-                        new View.OnClickListener() {
-                            @Override
-                            public void onClick(View v) {
-                                ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.WRITE_CONTACTS},MY_PERMISSION_REQUEST_WRITE_CONTACTS);
-                            }
-                        }).show();
-            }else{
-                ActivityCompat.requestPermissions(this,
-                        new String[]{Manifest.permission.WRITE_CONTACTS},
-                        MY_PERMISSION_REQUEST_WRITE_CONTACTS);
-            }
+            requestRunTimePermissions(new String[]{Manifest.permission.WRITE_CONTACTS}, MY_PERMISSION_REQUEST_WRITE_CONTACTS);
         }
     }
 
@@ -295,7 +252,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
 
     private void loadContacts() {
-
+        recentOpPerfomed=LOAD_CONTACTS;
         if(ActivityCompat.checkSelfPermission(this,Manifest.permission.READ_CONTACTS)==PackageManager.PERMISSION_GRANTED){
             Log.i(TAG,"Permisssion is granted");
             if (firstTimeLoaded == false) {
@@ -305,20 +262,41 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 getLoaderManager().restartLoader(1, null, this);
             }
         }else{
-            Log.i(TAG,"Permisssion is not granted");
-            if (ActivityCompat.shouldShowRequestPermissionRationale(this,Manifest.permission.READ_CONTACTS)){
+            requestRunTimePermissions(new String[]{Manifest.permission.READ_CONTACTS}, MY_PERMISSIONS_REQUEST_READ_CONTACTS);
+        }
+    }
+
+
+    protected void requestRunTimePermissions(final String [] permissions, final int customPermissionConstant){
+        if(permissions.length==1){
+            if (ActivityCompat.shouldShowRequestPermissionRationale(this,permissions[0])){
                 Log.i(TAG,"Permisssion is not granted, hence showing rationale");
-                Snackbar.make(findViewById(android.R.id.content),"Need permission for loading data",Snackbar.LENGTH_INDEFINITE).setAction("ENABLE",
+                Snackbar.make(findViewById(android.R.id.content),"App needs permission to work",Snackbar.LENGTH_INDEFINITE).setAction("ENABLE",
                         new View.OnClickListener() {
                             @Override
                             public void onClick(View v) {
-                                ActivityCompat.requestPermissions(MainActivity.this,new String[]{Manifest.permission.READ_CONTACTS},MY_PERMISSIONS_REQUEST_READ_CONTACTS);
+                                ActivityCompat.requestPermissions(MainActivity.this,permissions,customPermissionConstant);
                             }
                         }).show();
             }else {
                 Log.i(TAG,"Permisssion being requested for first time");
-                ActivityCompat.requestPermissions(this,new String[]{Manifest.permission.READ_CONTACTS},MY_PERMISSIONS_REQUEST_READ_CONTACTS);
+
+                ActivityCompat.requestPermissions(this,new String[]{permissions[0]},customPermissionConstant);
             }
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if(requestCode==MY_PERMISSIONS_REQUEST_READ_CONTACTS || requestCode==MY_PERMISSION_REQUEST_WRITE_CONTACTS && grantResults[0]==PackageManager.PERMISSION_GRANTED){
+            switch (recentOpPerfomed){
+                case WRITE_CONTACTS: addContact();break;
+                case DELETE_CONTACTS: deleteContact();break;
+                case  UPDATE_CONTACTS: modifyCotact();break;
+                default: break;
+            }
+            loadContacts();
         }
     }
 }
