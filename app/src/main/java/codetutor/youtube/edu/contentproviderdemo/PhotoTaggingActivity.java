@@ -39,32 +39,19 @@ public class PhotoTaggingActivity extends BaseActivity {
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if(requestCode== MY_PHOTO_TAGGING_PERMISSIONS && grantResults[0]== PackageManager.PERMISSION_GRANTED){
-            if(checkWhetherAllPermissionsPresentForPhotoTagging()){
-                Toast.makeText(this,"Please go ahead do your stuff", Toast.LENGTH_SHORT).show();
-            }
-            else if (requestCode== MY_PHOTO_TAGGING_PERMISSIONS && grantResults[0]==PackageManager.PERMISSION_DENIED){
-                Snackbar.make(findViewById(android.R.id.content),"Permission denied, photo tagging will not work, to enable now click here",
+
+        if (requestCode == MY_PHOTO_TAGGING_PERMISSIONS) {
+            if (checkWhetherAllPermissionsPresentForPhotoTagging()) {
+                Toast.makeText(this, "Please go ahead do your stuff", Toast.LENGTH_SHORT).show();
+            } else {
+                String permissionString=getDeniedPermissionsAmongPhototaggingPermissions().length==1?"Permission":"Permissions";
+                Snackbar.make(findViewById(android.R.id.content), permissionString+" denied, photo tagging will not work. To enable now click here",
                         Snackbar.LENGTH_INDEFINITE).setAction("ENABLE", new View.OnClickListener() {
                     @Override
                     public void onClick(View v) {
                         ActivityCompat.requestPermissions(PhotoTaggingActivity.this, getDeniedPermissionsAmongPhototaggingPermissions(), MY_PHOTO_TAGGING_PERMISSIONS);
                     }
                 }).show();
-            }
-        }else if(permissions.length>1){
-            if (requestCode == MY_PHOTO_TAGGING_PERMISSIONS) {
-                if (checkWhetherAllPermissionsPresentForPhotoTagging()) {
-                    Toast.makeText(this, "Please go ahead do your stuff", Toast.LENGTH_SHORT).show();
-                } else {
-                    Snackbar.make(findViewById(android.R.id.content), "Permissions denied, photo tagging will not work. To enable now click here",
-                            Snackbar.LENGTH_INDEFINITE).setAction("ENABLE", new View.OnClickListener() {
-                        @Override
-                        public void onClick(View v) {
-                            ActivityCompat.requestPermissions(PhotoTaggingActivity.this, getDeniedPermissionsAmongPhototaggingPermissions(), MY_PHOTO_TAGGING_PERMISSIONS);
-                        }
-                    }).show();
-                }
             }
         }
     }
