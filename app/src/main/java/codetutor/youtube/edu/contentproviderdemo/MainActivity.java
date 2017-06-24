@@ -105,6 +105,7 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
         } else {
             textViewQueryResult.setText("No Contacts in device");
         }
+        cursor.close();
     }
 
     @Override
